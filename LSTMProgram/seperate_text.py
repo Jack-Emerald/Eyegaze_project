@@ -26,12 +26,39 @@ def split_file(file_path, num_files):
 
 
 # Main logic to handle multiple files
-def split_all_files_in_directory(directory, num_files, pattern="sport*.txt"):
+def split_all_files_in_directory(directory, num_files, pattern="news*.txt"):
     # Find all files matching the pattern
     file_paths = glob.glob(os.path.join(directory, pattern))
     for file_path in file_paths:
         print(f"Splitting file: {file_path}")
         split_file(file_path, num_files)
 
+
+def modify_text_file(filename):
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+
+    total_lines = len(lines)
+
+    if total_lines < 60000:
+        with open(filename, 'a') as file:
+            while total_lines < 60000:
+                for line in lines:
+                    file.write(line)
+                    total_lines += 1
+                    if total_lines >= 60000:
+                        break
+    elif total_lines > 60000:
+        with open(filename, 'w') as file:
+            file.writelines(lines[:60000])
+
+def modify_all_files_in_directory(directory, pattern="news*.txt"):
+    # Find all files matching the pattern
+    file_paths = glob.glob(os.path.join(directory, pattern))
+    for file_path in file_paths:
+        print(f"modify file: {file_path}")
+        modify_text_file(file_path)
+
 # Usage
-split_all_files_in_directory(".", 2)  # "." for current directory, 10 for the number of parts
+#split_all_files_in_directory(".", 2)  # "." for current directory, 10 for the number of parts
+modify_all_files_in_directory(".","sport*.txt")

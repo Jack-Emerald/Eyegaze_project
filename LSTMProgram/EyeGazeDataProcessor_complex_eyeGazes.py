@@ -19,16 +19,9 @@ import random
 class GestureDataProcessor:
     def __init__(self):
         #self.feature_match = {"fixcenter": 1, "highdynamic": 2, "lowdynamic": 3, "speaker": 4, "relax": 5}
-        self.feature_match = {"fixcenter": 1, "highdynamic": 2, "relax": 3}
-        self.gesture_name = ["fixcenter", "highdynamic", "relax"]
-        self.all_video_files = [11, 12, 13, 14, 15, 16, 17, 18, 19, 110,
-                           21, 22, 23, 24, 25, 26, 27, 28, 29, 210,
-                           31, 32, 33, 34, 35, 36, 37, 38, 39, 310,
-                           41, 42, 43, 44, 45, 46, 47, 48, 49, 410,
-                           51, 52, 53, 54, 55, 56, 57, 58, 59, 510,
-                           61, 62, 63, 64, 65, 66, 67, 68, 69, 610,
-                           71, 72, 73, 74, 75, 76, 77, 78, 79, 710,
-                           81, 82, 83, 84, 85, 86, 87, 88, 89, 810]
+        self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "podcast": 5, "movie": 6, "sport":7}
+        self.gesture_name = ["fashion", "game", "music", "news", "podcast","movie"]
+        self.all_video_files = [1,2,3,4,5,6,7,8,9,10]
 
 
         self.loaded_x = list()
@@ -38,7 +31,7 @@ class GestureDataProcessor:
         self.stepLen = '32'
         self.totalAcc = float()
 
-        self.folder_path = "all_gazes_text/"
+        self.folder_path = "all_gazes_text/youtube_video_processed/"
         #self.data_split()
 
 
@@ -85,12 +78,12 @@ class GestureDataProcessor:
                     combined_list = combined_list + [ori_x, ori_y, ori_z, ori_w]
 
         #16 means number of seconds does each step has
-        step = 16*int(self.stepLen)
+        step = (32 * int(self.stepLen)) // 2  # 50% overlap
 
         # Split the combined_list into sublists
         for i in range(0, len(combined_list), step):
-            time_step_data = combined_list[i:i + step]
-            if len(time_step_data) == step:
+            time_step_data = combined_list[i:i + (16 * int(self.stepLen))]
+            if len(time_step_data) == (16 * int(self.stepLen)):
                 # sublist is a list which contains many [ori_x, ori_y, ori_z, ori_w], means a clip in 16 seconds.
                 sublist = [time_step_data[i:i + 4] for i in range(0, len(time_step_data), 4)]
                 # sublists is a list that contains all the clips of this file.
@@ -176,6 +169,8 @@ class GestureDataProcessor:
         verbose, epochs, batch_size = 0, 30, 64
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
+        print(n_timesteps, n_features, n_outputs)
+
         # Build the model using Sequential API
         inputs = layers.Input(shape = (n_timesteps, n_features))
 
@@ -183,8 +178,8 @@ class GestureDataProcessor:
         lstm_out = layers.LSTM(100, return_sequences = True)(inputs)
 
         # Attention mechanism: Apply self-attention (query and value are both LSTM outputs)
-        attention_out = layers.Attention()([lstm_out, lstm_out])
-        #attention_out = layers.MultiHeadAttention(num_heads=4, key_dim=100)(lstm_out, lstm_out)
+        #attention_out = layers.Attention()([lstm_out, lstm_out])
+        attention_out = layers.MultiHeadAttention(num_heads=6, key_dim=100)(lstm_out, lstm_out)
 
         # Flatten the attention output to feed into Dense layers
         flattened_out = layers.Flatten()(attention_out)
@@ -219,7 +214,7 @@ class GestureDataProcessor:
             y_pred = model.predict(testX, batch_size = batch_size, verbose = 0)
             y_pred_labels = np.argmax(y_pred, axis = 1)
             y_pred_labels = y_pred_labels.tolist()
-            #print("Predicted Label:", y_pred_labels)
+            print("Predicted clips:", y_pred_labels)
 
             # Find the majority number (most common label)
             if y_pred_labels:  # Ensure y_pred_labels is not empty
@@ -295,7 +290,7 @@ class GestureDataProcessor:
 
     # run experiment multiple times.
     # each time dataset is loaded randomly and data is evaluated by model trained by train data.
-    def run_experiment(self, repeats = 10):
+    def run_experiment(self, repeats = 1):
         # repeat experiment
         scores = list()
         overall_conf_matrix = None
