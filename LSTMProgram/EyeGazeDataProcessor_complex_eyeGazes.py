@@ -17,13 +17,13 @@ from collections import Counter
 import random
 
 class GestureDataProcessor:
-    def __init__(self):
+    def __init__(self, test = 0):
         #self.feature_match = {"fixcenter": 1, "highdynamic": 2, "lowdynamic": 3, "speaker": 4, "relax": 5}
         self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "podcast": 5, "movie": 6, "sport":7}
-        self.gesture_name = ["fashion", "game", "music", "news", "podcast","movie"]
+        self.gesture_name = ["fashion", "game", "music", "news", "podcast","movie","sport"]
         self.all_video_files = [1,2,3,4,5,6,7,8,9,10]
 
-
+        self.test = test
         self.loaded_x = list()
         self.loaded_y = list()
         self.testFile = list()
@@ -39,6 +39,13 @@ class GestureDataProcessor:
     # separate self.all_video_files into self.trainFile and self.testFile
     # train_ratio means how many percentage files will be used for train
     def data_split(self, train_ratio=0.8):
+        if self.test == 1:
+            self.trainFile = [[1,2,3,4,6,7,8,9]]
+            self.testFile = [[5,10]]
+            print(self.trainFile)
+            print(self.testFile)
+            return
+
         self.trainFile = list()
         self.testFile = list()
 
@@ -49,7 +56,9 @@ class GestureDataProcessor:
         split_index = int(len(shuffled_files) * train_ratio)
         # Split the files
         self.trainFile.append(shuffled_files[:split_index])
+        print(self.trainFile)
         self.testFile.append(shuffled_files[split_index:])
+        print(self.testFile)
 
 
 
@@ -77,13 +86,14 @@ class GestureDataProcessor:
 
                     combined_list = combined_list + [ori_x, ori_y, ori_z, ori_w]
 
-        #16 means number of seconds does each step has
-        step = (32 * int(self.stepLen)) // 2  # 50% overlap
+        #window size means number of seconds does each window has
+        window_size = 32
+        step = (window_size * int(self.stepLen)) // 2  # 50% overlap
 
         # Split the combined_list into sublists
         for i in range(0, len(combined_list), step):
-            time_step_data = combined_list[i:i + (16 * int(self.stepLen))]
-            if len(time_step_data) == (16 * int(self.stepLen)):
+            time_step_data = combined_list[i:i + (window_size * int(self.stepLen))]
+            if len(time_step_data) == (window_size * int(self.stepLen)):
                 # sublist is a list which contains many [ori_x, ori_y, ori_z, ori_w], means a clip in 16 seconds.
                 sublist = [time_step_data[i:i + 4] for i in range(0, len(time_step_data), 4)]
                 # sublists is a list that contains all the clips of this file.
@@ -179,7 +189,7 @@ class GestureDataProcessor:
 
         # Attention mechanism: Apply self-attention (query and value are both LSTM outputs)
         #attention_out = layers.Attention()([lstm_out, lstm_out])
-        attention_out = layers.MultiHeadAttention(num_heads=6, key_dim=100)(lstm_out, lstm_out)
+        attention_out = layers.MultiHeadAttention(num_heads=4, key_dim=100)(lstm_out, lstm_out)
 
         # Flatten the attention output to feed into Dense layers
         flattened_out = layers.Flatten()(attention_out)
@@ -320,7 +330,7 @@ class GestureDataProcessor:
         sns.heatmap(overall_conf_matrix, annot=True, fmt="d", cmap="Blues", cbar=True)
         plt.xlabel("Predicted Labels")
         plt.ylabel("True Labels")
-        plt.title("Overall Confusion Matrix Heatmap")
+        plt.title(f"Overall Confusion Matrix Heatmap\n{ave_acc}")
         plt.show()
 
         overall_conf_matrix = overall_conf_matrix / overall_conf_matrix.sum(axis = 1,
@@ -330,7 +340,7 @@ class GestureDataProcessor:
         sns.heatmap(overall_conf_matrix, annot=True, fmt=".2f", cmap="Blues", cbar=True)
         plt.xlabel("Predicted Labels")
         plt.ylabel("True Labels")
-        plt.title("Overall Confusion Matrix Heatmap percentage")
+        plt.title(f"Overall Confusion Matrix Heatmap percentage\n{ave_acc}")
         plt.show()
 
         #self.to_csv(ave_acc, overall_conf_matrix)
@@ -340,6 +350,6 @@ class GestureDataProcessor:
 
 
 # Usage example:
-processor = GestureDataProcessor()
+processor = GestureDataProcessor(1)
 
-processor.run_experiment()
+processor.run_experiment(10)

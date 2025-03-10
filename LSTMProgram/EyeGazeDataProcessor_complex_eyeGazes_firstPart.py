@@ -78,13 +78,14 @@ class GestureDataProcessor:
 
                     combined_list = combined_list + [ori_x, ori_y, ori_z, ori_w]
 
-        #16 means number of seconds does each step has
-        step = (32 * int(self.stepLen)) // 2  # 50% overlap
+        #window size means number of seconds does each window has
+        window_size = 32
+        step = (window_size * int(self.stepLen)) // 2  # 50% overlap
 
         # Split the combined_list into sublists
         for i in range(0, len(combined_list), step):
-            time_step_data = combined_list[i:i + (16 * int(self.stepLen))]
-            if len(time_step_data) == (16 * int(self.stepLen)):
+            time_step_data = combined_list[i:i + (window_size * int(self.stepLen))]
+            if len(time_step_data) == (window_size * int(self.stepLen)):
                 # sublist is a list which contains many [ori_x, ori_y, ori_z, ori_w], means a clip in 16 seconds.
                 sublist = [time_step_data[i:i + 4] for i in range(0, len(time_step_data), 4)]
                 # sublists is a list that contains all the clips of this file.
