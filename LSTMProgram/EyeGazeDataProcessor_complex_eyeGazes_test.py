@@ -19,6 +19,12 @@ from collections import Counter
 import random
 
 
+def write_if_empty(filename, data):
+    # Check if file exists and is not empty
+    if not os.path.exists(filename) or os.path.getsize(filename) == 0:
+        with open(filename, "w") as f:
+            json.dump(data, f)
+
 class GestureDataProcessor:
     def __init__(self, test = 0):
         #self.feature_match = {"fixcenter": 1, "highdynamic": 2, "lowdynamic": 3, "speaker": 4, "relax": 5}
@@ -105,9 +111,17 @@ class GestureDataProcessor:
 
         return sublists
 
+    def save_if_empty(self, name, list):
+        write_if_empty(name, list)
+
     # load data, train and test files are treated differently
     def load_group(self, gesture_names, group, combination_index):
         if group == "train":
+            if self.test == 1:
+                loaded_data_x = np.load("train_x.npy")
+                loaded_data_y = np.load("train_y.npy")
+                return loaded_data_x, loaded_data_y
+
             range_domain = self.trainFile[combination_index]
 
             for gesture_name in gesture_names:
@@ -128,13 +142,14 @@ class GestureDataProcessor:
             self.loaded_y = list()
             self.loaded_x = list()
 
-
-            if self.test == 1:
-                np.save("train_x.npy", loaded_data_x)
-                np.save("train_y.npy", loaded_data_y)
             return loaded_data_x, loaded_data_y
 
         elif group == "test":
+            if self.test == 1:
+                loaded_data_x = np.load("test_x.npy")
+                loaded_data_y = np.load("test_y.npy")
+                return loaded_data_x, loaded_data_y
+
             range_domain = self.testFile[combination_index]
 
             for gesture_name in gesture_names:
@@ -159,9 +174,6 @@ class GestureDataProcessor:
             self.loaded_y = list()
             self.loaded_x = list()
 
-            if self.test == 1:
-                np.save("test_x.npy", loaded_data_x)
-                np.save("test_y.npy", loaded_data_y)
             return loaded_data_x, loaded_data_y
 
     # randomly choose train and test files
