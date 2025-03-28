@@ -185,10 +185,36 @@ class GestureDataProcessor:
         #print(trainX.shape, trainY.shape, testX.shape, testY.shape)
         return trainX, trainY, testX, testY
 
+    def plot_training_history(self, history):
+        plt.figure(figsize = (14, 5))
+
+        # Plot loss
+        plt.subplot(1, 2, 1)
+        plt.plot(history.history['loss'], label = 'Train Loss')
+        plt.plot(history.history['val_loss'], label = 'Val Loss')
+        plt.title('Loss Over Epochs')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True)
+
+        # Plot accuracy
+        plt.subplot(1, 2, 2)
+        plt.plot(history.history['accuracy'], label = 'Train Accuracy')
+        plt.plot(history.history['val_accuracy'], label = 'Val Accuracy')
+        plt.title('Accuracy Over Epochs')
+        plt.xlabel('Epoch')
+        plt.ylabel('Accuracy')
+        plt.legend()
+        plt.grid(True)
+
+        plt.tight_layout()
+        plt.show()
+
     # run experiment for once.
     def evaluate_model(self, trainX, trainy, testX_list, testy):
 
-        verbose, epochs, batch_size = 0, 120, 32
+        verbose, epochs, batch_size = 0, 60, 32
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
         print(n_timesteps, n_features, n_outputs)
@@ -216,9 +242,10 @@ class GestureDataProcessor:
 
         # Training
         early_stopping = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10)
-        model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size, verbose = verbose,
+        history = model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size, verbose = verbose,
                   validation_split = 0.1, callbacks = [early_stopping])
-
+        print(history.history)
+        self.plot_training_history(history)
         # Fit the model
         #model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size, verbose = verbose)
 
@@ -359,4 +386,4 @@ class GestureDataProcessor:
 # Usage example:
 processor = GestureDataProcessor(1)
 
-processor.run_experiment(5)
+processor.run_experiment(1)
