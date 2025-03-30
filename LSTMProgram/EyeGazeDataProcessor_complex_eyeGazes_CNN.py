@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from numpy import mean
 from numpy import std
+import pickle
 
 import keras
 import os
@@ -16,6 +17,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
 from collections import Counter
 import random
 
@@ -91,7 +93,7 @@ class GestureDataProcessor:
                     combined_list = combined_list + [ori_x, ori_y, ori_z, ori_w]
 
         #window size means number of seconds does each window has
-        window_size = 16
+        window_size = 4
         step = (window_size * int(self.stepLen)) // 2  # 50% overlap
 
         print("process clips")
@@ -129,10 +131,6 @@ class GestureDataProcessor:
             self.loaded_y = list()
             self.loaded_x = list()
 
-
-            if self.test == 1:
-                np.save("train_x.npy", loaded_data_x)
-                np.save("train_y.npy", loaded_data_y)
             return loaded_data_x, loaded_data_y
 
         elif group == "test":
@@ -160,9 +158,6 @@ class GestureDataProcessor:
             self.loaded_y = list()
             self.loaded_x = list()
 
-            if self.test == 1:
-                np.save("test_x.npy", loaded_data_x)
-                np.save("test_y.npy", loaded_data_y)
             return loaded_data_x, loaded_data_y
 
     # randomly choose train and test files
@@ -214,10 +209,11 @@ class GestureDataProcessor:
     # run experiment for once.
     def evaluate_model(self, trainX, trainy, testX_list, testy):
 
-        verbose, epochs, batch_size = 0, 60, 32
+        verbose, epochs, batch_size = 0, 80, 32
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
         print(n_timesteps, n_features, n_outputs)
+        print(type(trainX),type(trainy),type(testX_list),type(testy))
 
         # Build the model using Sequential API
         inputs = layers.Input(shape = (n_timesteps, n_features))
@@ -240,10 +236,15 @@ class GestureDataProcessor:
         #optimizer = optimizers.Adam(learning_rate = 1e-4)
         model.compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
 
+        trainX_part, valX, trainy_part, valy = train_test_split(
+            trainX, trainy, test_size = 0.1, stratify = trainy.argmax(axis = 1), random_state = 42
+        )
+
         # Training
         early_stopping = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10)
-        history = model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size, verbose = verbose,
-                  validation_split = 0.1, callbacks = [early_stopping])
+        history = model.fit(trainX_part, trainy_part,
+                    validation_data=(valX, valy), epochs = epochs, batch_size = batch_size, verbose = verbose,
+                     callbacks = [early_stopping])
         print(history.history)
         self.plot_training_history(history)
         # Fit the model
@@ -339,9 +340,25 @@ class GestureDataProcessor:
         scores = list()
         overall_conf_matrix = None
 
-        for r in range(repeats):
+        trainX, trainy, testX, testy = None, None, None, None
 
-            trainX, trainy, testX, testy = self.load_dataSet(0)
+        for r in range(repeats):
+            if self.test == 0:
+                trainX, trainy, testX, testy = self.load_dataSet(0)
+            elif self.test == 1:
+                if os.path.exists('data.pkl'):
+                    print(f"Loading data from data.pkl")
+                    if trainX is None:
+                        with open('data.pkl', 'rb') as f:
+                            trainX, trainy, testX, testy = pickle.load(f)
+                    else:
+                        #already loaded
+                        pass
+                else:
+                    print("data.pkl not found. Saving data.")
+                    trainX, trainy, testX, testy = self.load_dataSet(0)
+                    with open('data.pkl', 'wb') as f:
+                        pickle.dump((trainX, trainy, testX, testy), f)
 
             score, conf_matrix = self.evaluate_model(trainX, trainy, testX, testy)
             score = score * 100.0
@@ -386,4 +403,4 @@ class GestureDataProcessor:
 # Usage example:
 processor = GestureDataProcessor(1)
 
-processor.run_experiment(1)
+processor.run_experiment(5)
