@@ -209,7 +209,7 @@ class GestureDataProcessor:
     # run experiment for once.
     def evaluate_model(self, trainX, trainy, testX_list, testy):
 
-        verbose, epochs, batch_size = 0, 80, 32
+        verbose, epochs, batch_size = 0, 60, 32
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
         print(n_timesteps, n_features, n_outputs)
@@ -219,12 +219,17 @@ class GestureDataProcessor:
         inputs = layers.Input(shape = (n_timesteps, n_features))
 
         # 1D CNN block
-        conv1 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu')(inputs)
-        conv2 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu')(conv1)
+        conv1 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(inputs)
+        conv2 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(conv1)
         pool1 = layers.MaxPooling1D(pool_size = 2)(conv2)
-        conv3 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu')(pool1)
+        conv3 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(pool1)
         pool2 = layers.MaxPooling1D(pool_size = 2)(conv3)
-        flat = layers.Flatten()(pool2)
+
+        conv4 = layers.Conv1D(filters = 256, kernel_size = 3, activation = 'relu',
+                              padding = 'same')(pool2)
+        pool3 = layers.MaxPooling1D(pool_size = 2)(conv4)
+
+        flat = layers.Flatten()(pool3)
         dense_out = layers.Dense(100, activation = 'relu')(flat)
         dense_out = layers.Dropout(0.5)(dense_out)
 
@@ -292,7 +297,7 @@ class GestureDataProcessor:
     def summarize_results(self, scores):
         #print(scores)
         m, s = mean(scores), std(scores)
-        Ave_acc = 'Accuracy: %.3f%% (+/-%.3f)' % (m, s)
+        Ave_acc = 'Average accuracy: %.3f%% (+/-%.3f)' % (m, s)
         print(Ave_acc)
 
         return Ave_acc
@@ -396,11 +401,9 @@ class GestureDataProcessor:
 
         #self.to_csv(ave_acc, overall_conf_matrix)
 
-        print(f"Average acc is {self.totalAcc/len(self.trainFile)}%")
-
 
 
 # Usage example:
-processor = GestureDataProcessor(1)
+processor = GestureDataProcessor(0)
 
 processor.run_experiment(5)
