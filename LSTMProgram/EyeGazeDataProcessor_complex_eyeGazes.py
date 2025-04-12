@@ -90,7 +90,7 @@ class GestureDataProcessor:
                     combined_list = combined_list + [ori_x, ori_y, ori_z, ori_w]
 
         #window size means number of seconds does each window has
-        window_size = 32
+        window_size = 4
         step = (window_size * int(self.stepLen)) // 2  # 50% overlap
 
         print("process clips")
@@ -187,7 +187,7 @@ class GestureDataProcessor:
     # run experiment for once.
     def evaluate_model(self, trainX, trainy, testX_list, testy):
 
-        verbose, epochs, batch_size = 0, 30, 64
+        verbose, epochs, batch_size = 0, 30, 128
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
         print(n_timesteps, n_features, n_outputs)
@@ -311,7 +311,7 @@ class GestureDataProcessor:
 
     # run experiment multiple times.
     # each time dataset is loaded randomly and data is evaluated by model trained by train data.
-    def run_experiment(self, repeats = 1):
+    def run_experiment(self, repeats = 10):
         # repeat experiment
         scores = list()
         overall_conf_matrix = None
@@ -361,6 +361,6 @@ class GestureDataProcessor:
 
 
 # Usage example:
-processor = GestureDataProcessor(1)
+processor = GestureDataProcessor() #parameter 1 means fixed train and test data. remove it for random
 
-processor.run_experiment(2)
+processor.run_experiment(5)

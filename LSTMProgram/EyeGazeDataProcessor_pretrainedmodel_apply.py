@@ -89,7 +89,7 @@ class GestureDataProcessor:
                     combined_list = combined_list + [ori_x, ori_y, ori_z, ori_w]
 
         #window size means number of seconds does each window has
-        window_size = 32
+        window_size = 16
         step = (window_size * int(self.stepLen)) // 2  # 50% overlap
 
         print("process clips")
@@ -407,7 +407,7 @@ class TransferLearningGestureProcessor(GestureDataProcessor):
         )
 
         # Train the new model on the smaller dataset
-        verbose, epochs, batch_size = 0, 30, 64
+        verbose, epochs, batch_size = 0, 60,128
 
         early_stopping = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 5)
         transfer_model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size,
@@ -465,7 +465,7 @@ class TransferLearningGestureProcessor(GestureDataProcessor):
                                metrics = ['accuracy'])
 
         # Train the new model on the smaller dataset
-        verbose, epochs, batch_size = 0, 15, 32
+        verbose, epochs, batch_size = 0, 30, 128
         transfer_model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size,
                            verbose = verbose)
 
@@ -498,7 +498,7 @@ for i in range(5):
     # Predict the test data and calculate the confusion matrix
     label_list = list()
     for X in testX:
-        y_pred = transfer_model.predict(X, batch_size = 64, verbose = 0)
+        y_pred = transfer_model.predict(X, batch_size = 128, verbose = 0)
         y_pred_labels = np.argmax(y_pred, axis = 1)
         y_pred_labels = y_pred_labels.tolist()
         print("Predicted clips:", y_pred_labels)

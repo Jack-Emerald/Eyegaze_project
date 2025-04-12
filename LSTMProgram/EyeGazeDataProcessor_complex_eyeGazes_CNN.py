@@ -12,7 +12,9 @@ import os
 from keras import layers
 from keras import utils
 from keras import Model
+from keras import models
 from keras import optimizers
+from keras import callbacks
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -20,6 +22,8 @@ from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 from collections import Counter
 import random
+
+import tensorflow as tf
 
 
 class GestureDataProcessor:
@@ -212,51 +216,62 @@ class GestureDataProcessor:
         verbose, epochs, batch_size = 0, 60, 32
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
-        print(n_timesteps, n_features, n_outputs)
-        print(type(trainX),type(trainy),type(testX_list),type(testy))
-
-        # Build the model using Sequential API
-        inputs = layers.Input(shape = (n_timesteps, n_features))
-
-        # 1D CNN block
-        conv1 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(inputs)
-        conv2 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(conv1)
-        pool1 = layers.MaxPooling1D(pool_size = 2)(conv2)
-        conv3 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(pool1)
-        pool2 = layers.MaxPooling1D(pool_size = 2)(conv3)
-
-        conv4 = layers.Conv1D(filters = 256, kernel_size = 3, activation = 'relu',
-                              padding = 'same')(pool2)
-        pool3 = layers.MaxPooling1D(pool_size = 2)(conv4)
-
-        flat = layers.Flatten()(pool3)
-        dense_out = layers.Dense(100, activation = 'relu')(flat)
-        dense_out = layers.Dropout(0.5)(dense_out)
-
-        # Output layer
-        output = layers.Dense(n_outputs, activation = 'softmax')(dense_out)
-
-        # Compile
-        model = Model(inputs = inputs, outputs = output)
-        #optimizer = optimizers.Adam(learning_rate = 1e-4)
-        model.compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
-
-        trainX_part, valX, trainy_part, valy = train_test_split(
-            trainX, trainy, test_size = 0.1, stratify = trainy.argmax(axis = 1), random_state = 42
+        checkpoint = callbacks.ModelCheckpoint(
+            "best_model.keras",
+            monitor='val_loss',
+            save_best_only=True,
+            save_weights_only=False
         )
 
-        # Training
-        early_stopping = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10)
-        history = model.fit(trainX_part, trainy_part,
-                    validation_data=(valX, valy), epochs = epochs, batch_size = batch_size, verbose = verbose,
-                     callbacks = [early_stopping])
-        print(history.history)
-        self.plot_training_history(history)
-        # Fit the model
-        #model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size, verbose = verbose)
+        if self.test == 2:
+            print("test saved model")
+            model = models.load_model("best_model.keras")
 
-        # Evaluate the model on test data
-        #_, accuracy = model.evaluate(testX, testy, batch_size = batch_size, verbose = 0)
+        else:
+            print(n_timesteps, n_features, n_outputs)
+            print(type(trainX),type(trainy),type(testX_list),type(testy))
+
+            # Build the model using Sequential API
+            inputs = layers.Input(shape = (n_timesteps, n_features))
+
+            # 1D CNN block
+            conv1 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(inputs)
+            conv2 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(conv1)
+            pool1 = layers.MaxPooling1D(pool_size = 2)(conv2)
+            conv3 = layers.Conv1D(filters = 256, kernel_size = 7, activation = 'relu', padding = 'same')(pool1)
+            pool2 = layers.MaxPooling1D(pool_size = 2)(conv3)
+
+            conv4 = layers.Conv1D(filters = 256, kernel_size = 3, activation = 'relu',
+                                  padding = 'same')(pool2)
+            pool3 = layers.MaxPooling1D(pool_size = 2)(conv4)
+
+            flat = layers.Flatten()(pool3)
+            dense_out = layers.Dense(100, activation = 'relu')(flat)
+            dense_out = layers.Dropout(0.5)(dense_out)
+
+            # Output layer
+            output = layers.Dense(n_outputs, activation = 'softmax')(dense_out)
+
+            # Compile
+            model = Model(inputs = inputs, outputs = output)
+            #optimizer = optimizers.Adam(learning_rate = 1e-4)
+            model.compile(loss = 'categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+
+            trainX_part, valX, trainy_part, valy = train_test_split(
+                trainX, trainy, test_size = 0.1, stratify = trainy.argmax(axis = 1), random_state = 42
+            )
+
+            # Training
+            early_stopping = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10)
+            history = model.fit(trainX_part, trainy_part,
+                        validation_data=(valX, valy), epochs = epochs, batch_size = batch_size, verbose = verbose,
+                         callbacks=[early_stopping, checkpoint])
+            self.plot_training_history(history)
+            # Fit the model
+            #model.fit(trainX, trainy, epochs = epochs, batch_size = batch_size, verbose = verbose)
+
+            # Evaluate the model on test data
+            #_, accuracy = model.evaluate(testX, testy, batch_size = batch_size, verbose = 0)
 
         # Predict the test data and calculate the confusion matrix
         label_list = list()
@@ -348,7 +363,7 @@ class GestureDataProcessor:
         trainX, trainy, testX, testy = None, None, None, None
 
         for r in range(repeats):
-            if self.test == 0:
+            if self.test == 0 or self.test == 2:
                 trainX, trainy, testX, testy = self.load_dataSet(0)
             elif self.test == 1:
                 if os.path.exists('data.pkl'):
@@ -404,6 +419,6 @@ class GestureDataProcessor:
 
 
 # Usage example:
-processor = GestureDataProcessor(0)
+processor = GestureDataProcessor(1)
 
-processor.run_experiment(5)
+processor.run_experiment(2)

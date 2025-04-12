@@ -18,6 +18,13 @@ from sklearn.metrics import confusion_matrix
 from collections import Counter
 import random
 
+
+def write_if_empty(filename, data):
+    # Check if file exists and is not empty
+    if not os.path.exists(filename) or os.path.getsize(filename) == 0:
+        with open(filename, "w") as f:
+            json.dump(data, f)
+
 class GestureDataProcessor:
     def __init__(self, test = 0):
         #self.feature_match = {"fixcenter": 1, "highdynamic": 2, "lowdynamic": 3, "speaker": 4, "relax": 5}
@@ -89,7 +96,7 @@ class GestureDataProcessor:
                     combined_list = combined_list + [ori_x, ori_y, ori_z, ori_w]
 
         #window size means number of seconds does each window has
-        window_size = 32
+        window_size = 16
         step = (window_size * int(self.stepLen)) // 2  # 50% overlap
 
         print("process clips")
@@ -192,7 +199,7 @@ class GestureDataProcessor:
     # run experiment for once.
     def evaluate_model(self, trainX, trainy, testX_list, testy):
 
-        verbose, epochs, batch_size = 0, 30, 64
+        verbose, epochs, batch_size = 0, 30, 128
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
         print(n_timesteps, n_features, n_outputs)
@@ -201,17 +208,17 @@ class GestureDataProcessor:
         inputs = layers.Input(shape = (n_timesteps, n_features))
 
         # LSTM layer with return_sequences=True to maintain the time steps for attention
-        lstm_out = layers.LSTM(100, return_sequences = False)(inputs)
+        lstm_out = layers.LSTM(100, return_sequences = True)(inputs)
 
         # Attention mechanism: Apply self-attention (query and value are both LSTM outputs)
         #attention_out = layers.Attention()([lstm_out, lstm_out])
-        #attention_out = layers.MultiHeadAttention(num_heads=4, key_dim=100)(lstm_out, lstm_out)
+        attention_out = layers.MultiHeadAttention(num_heads=4, key_dim=100)(lstm_out, lstm_out)
 
         # Flatten the attention output to feed into Dense layers
-        #flattened_out = layers.Flatten()(attention_out)
+        flattened_out = layers.Flatten()(attention_out)
 
         # Add the dense layer with 100 units and ReLU activation (same as original)
-        dense_out = layers.Dense(100, activation = 'relu')(lstm_out)
+        dense_out = layers.Dense(100, activation = 'relu')(flattened_out)
 
         # Dropout layer for regularization
         dense_out = layers.Dropout(0.3)(dense_out)
