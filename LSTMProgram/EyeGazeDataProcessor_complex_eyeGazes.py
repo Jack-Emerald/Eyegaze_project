@@ -199,7 +199,7 @@ class GestureDataProcessor:
     # run experiment for once.
     def evaluate_model(self, trainX, trainy, testX_list, testy):
 
-        verbose, epochs, batch_size = 0, 30, 128
+        verbose, epochs, batch_size = 0, 60, 64
         n_timesteps, n_features, n_outputs = trainX.shape[1], trainX.shape[2], trainy.shape[1]
 
         print(n_timesteps, n_features, n_outputs)
@@ -373,6 +373,6 @@ class GestureDataProcessor:
 
 
 # Usage example:
-processor = GestureDataProcessor() #parameter 1 means fixed train and test data. remove it for random
+processor = GestureDataProcessor(1) #parameter 1 means fixed train and test data. remove it for random
 
-processor.run_experiment(5)
+processor.run_experiment(10)
