@@ -37,16 +37,35 @@ class GestureDataProcessor:
         self.folder_path = "all_gazes_text/youtube_video_processed/"
         #self.data_split()
 
+        self.combinations = [
+            ([1, 2, 3, 6, 7, 8, 9, 10], [4, 5]),
+            ([1, 2, 4, 5, 6, 8, 9, 10], [3, 7]),
+            ([1, 3, 5, 6, 7, 8, 9, 10], [2, 4]),
+            ([2, 3, 4, 5, 6, 7, 8, 10], [1, 9]),
+            ([1, 2, 3, 4, 5, 6, 7, 9], [8, 10]),
+            ([1, 2, 3, 4, 6, 7, 8, 9], [5, 10]),
+            ([1, 2, 3, 5, 6, 7, 8, 10], [4, 9]),
+            ([1, 2, 4, 5, 6, 7, 9, 10], [3, 8]),
+            ([1, 3, 4, 5, 6, 8, 9, 10], [2, 7]),
+            ([2, 3, 4, 5, 7, 8, 9, 10], [1, 6])
+
+        ]
+        self.experiment_count = 0
+
 
 
     # separate self.all_video_files into self.trainFile and self.testFile
     # train_ratio means how many percentage files will be used for train
     def data_split(self, train_ratio=0.8):
         if self.test == 1:
-            self.trainFile = [[1,2,3,4,6,7,8,9]]
-            self.testFile = [[5,10]]
-            print(self.trainFile)
-            print(self.testFile)
+            if self.experiment_count >= len(self.combinations):
+                raise IndexError("No more predefined combinations available.")
+
+            train, test = self.combinations[self.experiment_count]
+            self.trainFile = [train]
+            self.testFile = [test]
+            print(f"🔁 Experiment {self.experiment_count + 1}: Train {train} | Test {test}")
+            self.experiment_count += 1
             return
 
         self.trainFile = list()
@@ -128,10 +147,6 @@ class GestureDataProcessor:
             self.loaded_y = list()
             self.loaded_x = list()
 
-
-            if self.test == 1:
-                np.save("train_x.npy", loaded_data_x)
-                np.save("train_y.npy", loaded_data_y)
             return loaded_data_x, loaded_data_y
 
         elif group == "test":
@@ -159,9 +174,6 @@ class GestureDataProcessor:
             self.loaded_y = list()
             self.loaded_x = list()
 
-            if self.test == 1:
-                np.save("test_x.npy", loaded_data_x)
-                np.save("test_y.npy", loaded_data_y)
             return loaded_data_x, loaded_data_y
 
     # randomly choose train and test files
