@@ -27,19 +27,15 @@ def set_seed(seed=42):
 class GestureLSTM(nn.Module):
     def __init__(self, n_timesteps, n_features, n_outputs):
         super(GestureLSTM, self).__init__()
-        self.lstm = nn.LSTM(input_size=n_features, hidden_size=100, batch_first=True)
-
-        self.attention = nn.MultiheadAttention(embed_dim=100, num_heads=4, batch_first=True)
-
+        self.lstm = nn.LSTM(input_size=n_features, hidden_size=100, batch_first=True, bidirectional=True)
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(n_timesteps * 100, 100)
+        self.fc1 = nn.Linear(n_timesteps * 200, 100)
         self.dropout = nn.Dropout(0.3)
         self.fc2 = nn.Linear(100, n_outputs)
 
     def forward(self, x):
         lstm_out, _ = self.lstm(x)  # x: (batch, seq, features) → (batch, seq, 100)
-        attn_out, _ = self.attention(lstm_out, lstm_out, lstm_out)  # (batch, seq, 100)
-        x = self.flatten(attn_out)  # (batch, seq*100)
+        x = self.flatten(lstm_out)  # (batch, seq*100)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
         x = self.fc2(x)
