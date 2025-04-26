@@ -67,7 +67,7 @@ class GestureDataset(Dataset):
 
 
 # --- Trainer ---
-def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=60, batch_size=64):
+def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=80, batch_size=64):
     set_seed()
 
     n_timesteps, n_features = trainX.shape[1], trainX.shape[2]
@@ -154,7 +154,7 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
 
 class GestureDataProcessor:
     def __init__(self, test=0):
-        self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "podcast": 5, "movie": 6, "sport": 7}
+        self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "movie": 5, "sport": 6}
         self.gesture_name = list(self.feature_match.keys())
         self.all_video_files = list(range(1, 11))
         self.test = test
@@ -165,17 +165,16 @@ class GestureDataProcessor:
         self.stepLen = '32'
         self.folder_path = "all_gazes_text/youtube_video_processed/"
         self.combinations = [
-            ([1, 2, 3, 6, 7, 8, 9, 10], [4, 5]),
-            ([1, 2, 4, 5, 6, 8, 9, 10], [3, 7]),
-            ([1, 3, 5, 6, 7, 8, 9, 10], [2, 4]),
-            ([2, 3, 4, 5, 6, 7, 8, 10], [1, 9]),
-            ([1, 2, 3, 4, 5, 6, 7, 9], [8, 10]),
-            ([1, 2, 3, 4, 6, 7, 8, 9], [5, 10]),
-            ([1, 2, 3, 5, 6, 7, 8, 10], [4, 9]),
-            ([1, 2, 4, 5, 6, 7, 9, 10], [3, 8]),
-            ([1, 3, 4, 5, 6, 8, 9, 10], [2, 7]),
-            ([2, 3, 4, 5, 7, 8, 9, 10], [1, 6])
-
+            ([1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19], [5, 6, 15, 20]),
+            ([1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 16, 17, 18, 19, 20], [5, 10, 14, 15]),
+            ([1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 15, 17, 18, 20], [10, 14, 16, 19]),
+            ([1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 14, 15, 17, 18, 20], [7, 13, 16, 19]),
+            ([1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 14, 15, 16, 17, 19, 20], [7, 11, 13, 18]),
+            ([1, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 19, 20], [2, 11, 12, 18]),
+            ([1, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 18, 19, 20], [2, 3, 12, 17]),
+            ([1, 2, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20], [3, 8, 9, 17]),
+            ([2, 3, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [1, 4, 8, 9]),
+            ([2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 18, 19, 20], [1, 10, 12, 17]),
         ]
         self.experiment_count = 0
 
@@ -213,7 +212,7 @@ class GestureDataProcessor:
                     ori_w = float(parts[8].replace(")", ""))
                     combined += [ori_x, ori_y, ori_z, ori_w]
 
-        window_size = 4
+        window_size = 8
         step = (window_size * int(self.stepLen)) // 2
         for i in range(0, len(combined), step):
             chunk = combined[i:i + (window_size * int(self.stepLen))]

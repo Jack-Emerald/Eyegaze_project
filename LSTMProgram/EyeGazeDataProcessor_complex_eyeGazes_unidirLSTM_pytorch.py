@@ -150,7 +150,7 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
 
 class GestureDataProcessor:
     def __init__(self, test=0):
-        self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "podcast": 5, "movie": 6, "sport": 7}
+        self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "movie": 5, "sport": 6} #"podcast": 7
         self.gesture_name = list(self.feature_match.keys())
         self.all_video_files = list(range(1, 11))
         self.test = test
@@ -161,17 +161,11 @@ class GestureDataProcessor:
         self.stepLen = '32'
         self.folder_path = "all_gazes_text/youtube_video_processed/"
         self.combinations = [
-            ([1, 2, 3, 6, 7, 8, 9, 10], [4, 5]),
-            ([1, 2, 4, 5, 6, 8, 9, 10], [3, 7]),
-            ([1, 3, 5, 6, 7, 8, 9, 10], [2, 4]),
-            ([2, 3, 4, 5, 6, 7, 8, 10], [1, 9]),
-            ([1, 2, 3, 4, 5, 6, 7, 9], [8, 10]),
-            ([1, 2, 3, 4, 6, 7, 8, 9], [5, 10]),
-            ([1, 2, 3, 5, 6, 7, 8, 10], [4, 9]),
-            ([1, 2, 4, 5, 6, 7, 9, 10], [3, 8]),
-            ([1, 3, 4, 5, 6, 8, 9, 10], [2, 7]),
-            ([2, 3, 4, 5, 7, 8, 9, 10], [1, 6])
-
+            ([2, 3, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [4, 1, 9, 8]),
+            ([1, 2, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19, 20], [12, 5, 16, 3]),
+            ([1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 20], [19, 17, 6, 14]),
+            ([1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19], [2, 20, 18, 7]),
+            ([1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 14, 16, 17, 18, 19, 20], [11, 13, 10, 15])
         ]
         self.experiment_count = 0
 
