@@ -63,7 +63,7 @@ class GestureDataset(Dataset):
 
 
 # --- Trainer ---
-def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=60, batch_size=64):
+def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs = 80, batch_size=32):
     set_seed()
 
     n_timesteps, n_features = trainX.shape[1], trainX.shape[2]
@@ -85,6 +85,8 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
     model = GestureLSTM(n_timesteps, n_features, n_outputs).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     criterion = nn.CrossEntropyLoss()
+
+    clip_acc = 0
 
     for epoch in range(epochs):
         model.train()
@@ -110,6 +112,8 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
                 correct_val += (out.argmax(dim=1) == y).sum().item()
 
         print(f"Epoch {epoch+1}/{epochs} | Train Acc: {correct_train}/{train_size} = {correct_train/train_size:.4f} | Val Acc:{correct_val}/{val_size} = {correct_val/val_size:.4f}")
+        if clip_acc < (correct_val/val_size):
+            clip_acc = correct_val/val_size
 
         # Early stopping logic
         if val_loss < best_val_loss:
@@ -146,7 +150,7 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
     accuracy = np.mean(predicted_labels == testy.squeeze())
     conf_matrix = confusion_matrix(testy.squeeze(), predicted_labels)
     print(f"✅ Final Test Accuracy: {accuracy:.4f}")
-    return accuracy, conf_matrix
+    return accuracy, conf_matrix, clip_acc
 
 class GestureDataProcessor:
     def __init__(self, test=0):
@@ -161,11 +165,16 @@ class GestureDataProcessor:
         self.stepLen = '32'
         self.folder_path = "all_gazes_text/youtube_video_processed/"
         self.combinations = [
-            ([2, 3, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [4, 1, 9, 8]),
-            ([1, 2, 4, 6, 7, 8, 9, 10, 11, 13, 14, 15, 17, 18, 19, 20], [12, 5, 16, 3]),
-            ([1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 15, 16, 18, 20], [19, 17, 6, 14]),
-            ([1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 19], [2, 20, 18, 7]),
-            ([1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 14, 16, 17, 18, 19, 20], [11, 13, 10, 15])
+            ([1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19], [5, 6, 15, 20]),
+            ([1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 16, 17, 18, 19, 20], [5, 10, 14, 15]),
+            ([1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 15, 17, 18, 20], [10, 14, 16, 19]),
+            ([1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 14, 15, 17, 18, 20], [7, 13, 16, 19]),
+            ([1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 14, 15, 16, 17, 19, 20], [7, 11, 13, 18]),
+            ([1, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 19, 20], [2, 11, 12, 18]),
+            ([1, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 18, 19, 20], [2, 3, 12, 17]),
+            ([1, 2, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20], [3, 8, 9, 17]),
+            ([2, 3, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [1, 4, 8, 9]),
+            ([2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 18, 19, 20], [1, 10, 12, 17]),
         ]
         self.experiment_count = 0
 
@@ -203,7 +212,7 @@ class GestureDataProcessor:
                     ori_w = float(parts[8].replace(")", ""))
                     combined += [ori_x, ori_y, ori_z, ori_w]
 
-        window_size = 4
+        window_size = 24
         step = (window_size * int(self.stepLen)) // 2
         for i in range(0, len(combined), step):
             chunk = combined[i:i + (window_size * int(self.stepLen))]
@@ -323,6 +332,7 @@ class GestureDataProcessor:
 
     def run_all_combinations(self):
         total_scores = []
+        total_clip_scores = []
         total_conf_matrix = None
 
         for _ in range(len(self.combinations)):
@@ -330,8 +340,9 @@ class GestureDataProcessor:
             print("Train class counts:", np.bincount(trainY))
             print("Test  class counts:", np.bincount(testY))
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            score, conf_matrix = train_and_evaluate_model(trainX, trainY, testX, testY, device)
+            score, conf_matrix, clip_acc = train_and_evaluate_model(trainX, trainY, testX, testY, device)
             total_scores.append(score * 100.0)
+            total_clip_scores.append(clip_acc * 100.0)
 
             if total_conf_matrix is None:
                 total_conf_matrix = conf_matrix
@@ -341,7 +352,10 @@ class GestureDataProcessor:
         # Final summary
         avg = np.mean(total_scores)
         std = np.std(total_scores)
+        avg1 = np.mean(total_clip_scores)
+        std1 = np.std(total_clip_scores)
         print(f"✅ Final Average Accuracy: {avg:.2f}% (+/- {std:.2f}%)")
+        print(f"✅ Final Average clip Accuracy: {avg1:.2f}% (+/- {std1:.2f}%)")
 
         # Plot total confusion matrix
         plt.figure(figsize=(10, 7))

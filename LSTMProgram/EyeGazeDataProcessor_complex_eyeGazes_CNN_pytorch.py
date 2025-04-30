@@ -104,6 +104,8 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
         print("First batch Y:", y_batch)
         break
 
+    clip_acc = 0
+
     for epoch in range(epochs):
         model.train()
         train_loss, correct_train = 0, 0
@@ -128,6 +130,8 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
                 correct_val += (out.argmax(dim=1) == y).sum().item()
 
         print(f"Epoch {epoch+1}/{epochs} | Train Acc: {correct_train}/{train_size} = {correct_train/train_size:.4f} | Val Acc:{correct_val}/{val_size} = {correct_val/val_size:.4f}")
+        if clip_acc < (correct_val/val_size):
+            clip_acc = correct_val/val_size
 
         # Early stopping logic
         if val_loss < best_val_loss:
@@ -164,7 +168,7 @@ def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=6
     accuracy = np.mean(predicted_labels == testy.squeeze())
     conf_matrix = confusion_matrix(testy.squeeze(), predicted_labels)
     print(f"✅ Final Test Accuracy: {accuracy:.4f}")
-    return accuracy, conf_matrix
+    return accuracy, conf_matrix, clip_acc
 
 class GestureDataProcessor:
     def __init__(self, test=0):
@@ -346,6 +350,7 @@ class GestureDataProcessor:
 
     def run_all_combinations(self):
         total_scores = []
+        total_clip_scores = []
         total_conf_matrix = None
 
         for _ in range(len(self.combinations)):
@@ -353,8 +358,9 @@ class GestureDataProcessor:
             print("Train class counts:", np.bincount(trainY))
             print("Test  class counts:", np.bincount(testY))
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            score, conf_matrix = train_and_evaluate_model(trainX, trainY, testX, testY, device)
+            score, conf_matrix, clip_acc = train_and_evaluate_model(trainX, trainY, testX, testY, device)
             total_scores.append(score * 100.0)
+            total_clip_scores.append(clip_acc * 100.0)
 
             if total_conf_matrix is None:
                 total_conf_matrix = conf_matrix
@@ -364,7 +370,10 @@ class GestureDataProcessor:
         # Final summary
         avg = np.mean(total_scores)
         std = np.std(total_scores)
+        avg1 = np.mean(total_clip_scores)
+        std1 = np.std(total_clip_scores)
         print(f"✅ Final Average Accuracy: {avg:.2f}% (+/- {std:.2f}%)")
+        print(f"✅ Final Average clip Accuracy: {avg1:.2f}% (+/- {std1:.2f}%)")
 
         # Plot total confusion matrix
         plt.figure(figsize=(10, 7))
