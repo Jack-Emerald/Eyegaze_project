@@ -181,6 +181,7 @@ class GestureDataProcessor:
         self.testFile = []
         self.trainFile = []
         self.stepLen = '32'
+        self.clip_length = 32
         self.folder_path = "all_gazes_text/youtube_video_processed/"
         self.combinations = [
              ([1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19], [5, 6, 15, 20]),
@@ -195,6 +196,7 @@ class GestureDataProcessor:
              ([2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 18, 19, 20], [1, 10, 12, 17]),
         ]
         self.experiment_count = 0
+        self.test_video_length = 5
 
     def data_random(self, train_ratio=0.8):
         print("random dataset.")
@@ -230,7 +232,7 @@ class GestureDataProcessor:
                     ori_w = float(parts[8].replace(")", ""))
                     combined += [ori_x, ori_y, ori_z, ori_w]
 
-        window_size = 32
+        window_size = self.clip_length
         step = (window_size * int(self.stepLen)) // 2
         for i in range(0, len(combined), step):
             chunk = combined[i:i + (window_size * int(self.stepLen))]
@@ -239,6 +241,10 @@ class GestureDataProcessor:
                 sublists.append(sublist)
 
         return sublists
+
+    def divide_list(self, lst, x):
+        k, m = divmod(len(lst), x)
+        return [lst[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(x)]
 
     def load_group(self, gesture_names, group, combination_index):
         if group == "train":
@@ -277,14 +283,18 @@ class GestureDataProcessor:
                 for i in range_domain:
                     file_path = os.path.join(self.folder_path, f"{gesture_name}{i}.txt")
                     #print(f"{gesture_name}{i}.txt")
-                    data_list = self.video_to_clips(file_path)
-                    data_list = np.array(data_list)
+                    data_list = self.video_to_clips(file_path) #clips of a video
 
-                    #one label for each video
-                    self.loaded_y.append(self.feature_match[gesture_name])
+                    divided = self.divide_list(data_list, self.test_video_length)
+                    print(len(divided))
 
-                    #make self.loaded_x a list of np array, each np array represent clips in a video
-                    self.loaded_x.append(data_list)
+                    for video in divided:
+                        data_list = np.array(video)
+                        #one label for each video
+                        self.loaded_y.append(self.feature_match[gesture_name])
+
+                        #make self.loaded_x a list of np array, each np array represent clips in a video
+                        self.loaded_x.append(data_list)
 
             loaded_data_x = self.loaded_x
 

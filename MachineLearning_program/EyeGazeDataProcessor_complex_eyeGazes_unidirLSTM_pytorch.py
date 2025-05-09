@@ -177,6 +177,7 @@ class GestureDataProcessor:
             ([2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 18, 19, 20], [1, 10, 12, 17]),
         ]
         self.experiment_count = 0
+        self.test_video_length = 6
 
     def data_random(self, train_ratio=0.8):
         print("random dataset.")
@@ -196,7 +197,9 @@ class GestureDataProcessor:
         print(f"🔁 Experiment {self.experiment_count + 1}: Train {train} | Test {test}")
         self.experiment_count += 1
 
-
+    def divide_list(self, lst, x):
+        k, m = divmod(len(lst), x)
+        return [lst[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(x)]
 
     def video_to_clips(self, path):
         combined = []
@@ -260,13 +263,15 @@ class GestureDataProcessor:
                     file_path = os.path.join(self.folder_path, f"{gesture_name}{i}.txt")
                     #print(f"{gesture_name}{i}.txt")
                     data_list = self.video_to_clips(file_path)
-                    data_list = np.array(data_list)
+                    divided = self.divide_list(data_list, self.test_video_length)
+                    print(len(divided))
+                    for video in divided:
+                        data_list = np.array(video)
+                        # one label for each video
+                        self.loaded_y.append(self.feature_match[gesture_name])
 
-                    #one label for each video
-                    self.loaded_y.append(self.feature_match[gesture_name])
-
-                    #make self.loaded_x a list of np array, each np array represent clips in a video
-                    self.loaded_x.append(data_list)
+                        # make self.loaded_x a list of np array, each np array represent clips in a video
+                        self.loaded_x.append(data_list)
 
             loaded_data_x = self.loaded_x
 
