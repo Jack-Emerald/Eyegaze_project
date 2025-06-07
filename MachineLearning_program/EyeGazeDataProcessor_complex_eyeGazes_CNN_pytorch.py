@@ -74,104 +74,8 @@ class GestureDataset(Dataset):
 
         return x, y
 
-
-# --- Trainer ---
-def train_and_evaluate_model(trainX, trainy, testX_list, testy, device, epochs=60, batch_size=48):
-    set_seed()
-
-    n_timesteps, n_features = trainX.shape[1], trainX.shape[2]
-    n_outputs = len(np.unique(trainy))
-
-    dataset = GestureDataset(trainX, trainy)
-    val_size = int(0.1 * len(dataset))
-    train_size = len(dataset) - val_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
-
-    # set early stop
-    best_val_loss = float('inf')
-    patience = 5  # You can tweak this
-    patience_counter = 0
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size)
-
-    model = GestureCNN(n_timesteps, n_features, n_outputs).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    criterion = nn.CrossEntropyLoss()
-
-    for x_batch, y_batch in train_loader:
-        print("First batch X:", x_batch.shape)
-        print("First batch Y:", y_batch)
-        break
-
-    clip_acc = 0
-
-    for epoch in range(epochs):
-        model.train()
-        train_loss, correct_train = 0, 0
-        for x, y in train_loader:
-            x, y = x.to(device), y.to(device)
-            optimizer.zero_grad()
-            out = model(x)
-            loss = criterion(out, y)
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-            correct_train += (out.argmax(dim=1) == y).sum().item()
-
-        model.eval()
-        val_loss, correct_val = 0, 0
-        with torch.no_grad():
-            for x, y in val_loader:
-                x, y = x.to(device), y.to(device)
-                out = model(x)
-                loss = criterion(out, y)
-                val_loss += loss.item()
-                correct_val += (out.argmax(dim=1) == y).sum().item()
-
-        print(f"Epoch {epoch+1}/{epochs} | Train Acc: {correct_train}/{train_size} = {correct_train/train_size:.4f} | Val Acc:{correct_val}/{val_size} = {correct_val/val_size:.4f}")
-        if clip_acc < (correct_val/val_size):
-            clip_acc = correct_val/val_size
-
-        # Early stopping logic
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            patience_counter = 0
-            best_model_state = model.state_dict()  # Save best model
-        else:
-            patience_counter += 1
-            print(f"⏳ No improvement in val_loss for {patience_counter} epoch(s)")
-
-        if patience_counter >= patience:
-            print("🛑 Early stopping triggered")
-            break
-
-    # Restore best model
-    model.load_state_dict(best_model_state)
-
-    # --- Predict test ---
-    label_list = []
-    model.eval()
-    with torch.no_grad():
-        for testX in testX_list:
-            testX = torch.tensor(testX, dtype=torch.float32).permute(0, 2, 1).to(device)
-            out = model(testX)
-            pred = out.argmax(dim=1).cpu().numpy().tolist()
-            #print("Predicted clips:", pred)
-            if pred:
-                majority = Counter(pred).most_common(1)[0][0]
-                label_list.append(majority)
-
-    predicted_labels = np.array(label_list)
-    print("Predicted Labels:", predicted_labels)
-    print("True Labels:", testy.squeeze())
-    accuracy = np.mean(predicted_labels == testy.squeeze())
-    conf_matrix = confusion_matrix(testy.squeeze(), predicted_labels)
-    print(f"✅ Final Test Accuracy: {accuracy:.4f}")
-    return accuracy, conf_matrix, clip_acc
-
 class GestureDataProcessor:
-    def __init__(self, test=0):
+    def __init__(self, test=0, combination = 1):
         self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "movie": 5, "sport": 6} #"podcast": 5,
         self.gesture_name = list(self.feature_match.keys())
         self.all_video_files = list(range(1, 11))
@@ -183,20 +87,37 @@ class GestureDataProcessor:
         self.stepLen = '32'
         self.clip_length = 32
         self.folder_path = "all_gazes_text/youtube_video_processed/"
-        self.combinations = [
-             ([1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19], [5, 6, 15, 20]),
-             ([1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 16, 17, 18, 19, 20], [5, 10, 14, 15]),
-             ([1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 15, 17, 18, 20], [10, 14, 16, 19]),
-             ([1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 14, 15, 17, 18, 20], [7, 13, 16, 19]),
-             ([1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 14, 15, 16, 17, 19, 20], [7, 11, 13, 18]),
-             ([1, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 19, 20], [2, 11, 12, 18]),
-             ([1, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 18, 19, 20], [2, 3, 12, 17]),
-             ([1, 2, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20], [3, 8, 9, 17]),
-             ([2, 3, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [1, 4, 8, 9]),
-             ([2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 18, 19, 20], [1, 10, 12, 17]),
-        ]
+        self.combinations = list()
+        self.decide_combination(combination)
+        self.num_testVideos = len(self.combinations[0][1]) #how many test video for each category
+        #print(self.num_testVideos)
+
+
+
         self.experiment_count = 0
-        self.test_video_length = 5
+        self.test_video_length = 1 #always 1 unless want to make test video shorter
+
+    def decide_combination(self, combination):
+        if combination == 1:
+            self.combinations = [
+                ([1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 18, 19], [5, 6, 15, 20]),
+                ([1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 16, 17, 18, 19, 20], [5, 10, 14, 15]),
+                ([1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 15, 17, 18, 20], [10, 14, 16, 19]),
+                ([1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 14, 15, 17, 18, 20], [7, 13, 16, 19]),
+                ([1, 2, 3, 4, 5, 6, 8, 9, 10, 12, 14, 15, 16, 17, 19, 20], [7, 11, 13, 18]),
+                ([1, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 19, 20], [2, 11, 12, 18]),
+                ([1, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 18, 19, 20], [2, 3, 12, 17]),
+                ([1, 2, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20], [3, 8, 9, 17]),
+                ([2, 3, 5, 6, 7, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [1, 4, 8, 9]),
+                ([2, 3, 4, 5, 6, 7, 8, 9, 11, 13, 14, 15, 16, 18, 19, 20], [1, 10, 12, 17]),
+            ]
+        elif combination == 2:
+            self.combinations = [
+                ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [0])
+            ]
+        else:
+            print("Invalid combination index, choose from 1 and 2")
+            exit(0)
 
     def data_random(self, train_ratio=0.8):
         print("random dataset.")
@@ -276,17 +197,16 @@ class GestureDataProcessor:
             return loaded_data_x, loaded_data_y
 
         elif group == "test":
+            print(self.testFile)
             range_domain = self.testFile[combination_index]
+            print(f"range domain is {range_domain}")
 
             for gesture_name in gesture_names:
 
                 for i in range_domain:
                     file_path = os.path.join(self.folder_path, f"{gesture_name}{i}.txt")
-                    #print(f"{gesture_name}{i}.txt")
                     data_list = self.video_to_clips(file_path) #clips of a video
-
                     divided = self.divide_list(data_list, self.test_video_length)
-                    print(len(divided))
 
                     for video in divided:
                         data_list = np.array(video)
@@ -319,44 +239,125 @@ class GestureDataProcessor:
         trainY, testY = trainY - 1, testY - 1
         return trainX, trainY, testX, testY
 
-    def run_experiment(self):
+    # --- Trainer ---
+    def train_and_evaluate_model(self, trainX, trainy, testX_list, testy, device, epochs=60, batch_size=48):
+        set_seed()
+
+        n_timesteps, n_features = trainX.shape[1], trainX.shape[2]
+        n_outputs = len(np.unique(trainy))
+
+        dataset = GestureDataset(trainX, trainy)
+        val_size = int(0.1 * len(dataset))
+        train_size = len(dataset) - val_size
+        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+
+        # set early stop
+        best_val_loss = float('inf')
+        patience = 5  # You can tweak this
+        patience_counter = 0
+
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size)
+
+        model = GestureCNN(n_timesteps, n_features, n_outputs).to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+        criterion = nn.CrossEntropyLoss()
+
         '''
-        if os.path.exists('data.pkl'):
-            with open('data.pkl', 'rb') as f:
-                trainX, trainY, testX, testY = pickle.load(f)
-        else:
+        for x_batch, y_batch in train_loader:
+            print("First batch X:", x_batch.shape)
+            print("First batch Y:", y_batch)
+            break
         '''
-        trainX, trainY, testX, testY = self.load_dataset()
+
+        for epoch in range(epochs):
+            model.train()
+            train_loss, correct_train = 0, 0
+            for x, y in train_loader:
+                x, y = x.to(device), y.to(device)
+                optimizer.zero_grad()
+                out = model(x)
+                loss = criterion(out, y)
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item()
+                correct_train += (out.argmax(dim=1) == y).sum().item()
+
+            model.eval()
+            val_loss, correct_val = 0, 0
+            with torch.no_grad():
+                for x, y in val_loader:
+                    x, y = x.to(device), y.to(device)
+                    out = model(x)
+                    loss = criterion(out, y)
+                    val_loss += loss.item()
+                    correct_val += (out.argmax(dim=1) == y).sum().item()
+
+            print(
+                f"Epoch {epoch + 1}/{epochs} | Train Acc: {correct_train}/{train_size} = {correct_train / train_size:.4f} | Val Acc:{correct_val}/{val_size} = {correct_val / val_size:.4f}")
 
 
-        #with open('data.pkl', 'wb') as f:
-            #pickle.dump((trainX, trainY, testX, testY), f)
+            # Early stopping logic
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                patience_counter = 0
+                best_model_state = model.state_dict()  # Save best model
+            else:
+                patience_counter += 1
+                print(f"⏳ No improvement in val_loss for {patience_counter} epoch(s)")
+
+            if patience_counter >= patience:
+                print("🛑 Early stopping triggered")
+                break
+
+        # Restore best model
+        model.load_state_dict(best_model_state)
+
+        # --- Predict test ---
+        label_list = []
+        model.eval()
+        with torch.no_grad():
+            total_predictions = 0
+            correct_predictions = 0
+            video_label = 0
+
+            for testX in testX_list:
+                testX = torch.tensor(testX, dtype=torch.float32).permute(0, 2, 1).to(device)
+                out = model(testX)
+                pred = out.argmax(dim=1).cpu().numpy().tolist()
+
+                current_label = video_label // self.num_testVideos
+
+                print(f"Predicted clips of video {current_label}: {pred}")
+                if pred:
+                    # Print the three most common labels and their counts
+                    most_common_labels = Counter(pred)
+                    print("labels count:")
+                    for label, count in most_common_labels.items():
+                        print(f"Label: {label}, Count: {count}")
+                        if label == current_label:
+                            correct_predictions += count
+
+                    total_predictions += len(pred)  # Update total number of predictions
+
+                    majority = Counter(pred).most_common(1)[0][0]
+                    label_list.append(majority)
+
+                video_label += 1
 
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print("Using device:", device)
-        acc, conf_matrix = train_and_evaluate_model(trainX, trainY, testX, testY, device)
+            print(f"Total number of clip predictions: {total_predictions}")
+            print(f"Total number of correct clip predictions: {correct_predictions}")
+            clip_accuracy = correct_predictions / total_predictions
 
-        print(f"✅ Final Test Accuracy: {acc:.4f}")
-
-
-        '''
-        plt.figure(figsize=(10, 7))
-        sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues')
-        plt.title("Confusion Matrix")
-        plt.xlabel("Predicted")
-        plt.ylabel("True")
-        plt.show()
-
-        conf_matrix = conf_matrix / conf_matrix.sum(axis=1, keepdims=True) * 100
-        # Plot heatmap for the overall confusion matrix
-        plt.figure(figsize=(10, 7))
-        sns.heatmap(conf_matrix, annot=True, fmt=".2f", cmap="Blues", cbar=True)
-        plt.xlabel("Predicted Labels")
-        plt.ylabel("True Labels")
-        plt.title(f"Overall Confusion Matrix Heatmap percentage\n{acc:.4f}")
-        plt.show()
-        '''
+        predicted_labels = np.array(label_list)
+        print("Predicted Labels:", predicted_labels)
+        print("True Labels:", testy.squeeze())
+        accuracy = np.mean(predicted_labels == testy.squeeze())
+        conf_matrix = confusion_matrix(testy.squeeze(), predicted_labels)
+        print(f"video Accuracy: {accuracy:.4f}")
+        print(f"clip Accuracy: {clip_accuracy:.4f}")
+        return accuracy, conf_matrix, clip_accuracy
 
     def run_all_combinations(self):
         total_scores = []
@@ -368,7 +369,7 @@ class GestureDataProcessor:
             print("Train class counts:", np.bincount(trainY))
             print("Test  class counts:", np.bincount(testY))
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            score, conf_matrix, clip_acc = train_and_evaluate_model(trainX, trainY, testX, testY, device)
+            score, conf_matrix, clip_acc = self.train_and_evaluate_model(trainX, trainY, testX, testY, device)
             total_scores.append(score * 100.0)
             total_clip_scores.append(clip_acc * 100.0)
 
@@ -405,5 +406,5 @@ class GestureDataProcessor:
 
 # --- Run the program ---
 if __name__ == '__main__':
-    processor = GestureDataProcessor(test=1)
+    processor = GestureDataProcessor(test=1,combination=1)
     processor.run_all_combinations()
