@@ -90,6 +90,7 @@ class GestureDataProcessor:
         self.combinations = list()
         self.decide_combination(combination)
         self.num_testVideos = len(self.combinations[0][1]) #how many test video for each category
+        self.loaded_weights =[]
         #print(self.num_testVideos)
 
 
@@ -113,7 +114,7 @@ class GestureDataProcessor:
             ]
         elif combination == 2:
             self.combinations = [
-                ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20], [0])
+                ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 23], [22])
             ]
         else:
             print("Invalid combination index, choose from 1 and 2")
@@ -172,6 +173,8 @@ class GestureDataProcessor:
             range_domain = self.trainFile[combination_index]
             data_pairs = []
 
+            weights = []
+
             for gesture_name in gesture_names:
                 for i in range_domain:
                     file_path = os.path.join(self.folder_path, f"{gesture_name}{i}.txt")
@@ -182,12 +185,19 @@ class GestureDataProcessor:
                         label = self.feature_match[gesture_name]
                         data_pairs.append((clip, label))
 
-
+                        # Apply weights: files 1 to 20 have weight 0.05, others have weight 1.0
+                        if 1 <= i <= 20:
+                            weights.append(0.1)  # Weight for files 1–20
+                        else:
+                            weights.append(1.0)  # No weight adjustment for other files
                     #self.loaded_x += data_list
 
-            # ✅ Shuffle the (clip, label) pairs at the data level
-            random.shuffle(data_pairs)
-            self.loaded_x, self.loaded_y = zip(*data_pairs)
+            # Shuffle the data with weights
+            weighted_data_pairs = list(zip(data_pairs, weights))
+            random.shuffle(weighted_data_pairs)  # Shuffle the data pairs based on the weight
+
+            self.loaded_x, self.loaded_y = zip(*[pair[0] for pair in weighted_data_pairs])
+            self.loaded_weights = [pair[1] for pair in weighted_data_pairs]
 
             loaded_data_x = np.array(self.loaded_x)
             loaded_data_y = np.array(self.loaded_y)
@@ -244,6 +254,7 @@ class GestureDataProcessor:
         set_seed()
 
         n_timesteps, n_features = trainX.shape[1], trainX.shape[2]
+        print(trainX.shape)
         n_outputs = len(np.unique(trainy))
 
         dataset = GestureDataset(trainX, trainy)
@@ -263,21 +274,20 @@ class GestureDataProcessor:
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
         criterion = nn.CrossEntropyLoss()
 
-        '''
-        for x_batch, y_batch in train_loader:
-            print("First batch X:", x_batch.shape)
-            print("First batch Y:", y_batch)
-            break
-        '''
-
         for epoch in range(epochs):
             model.train()
             train_loss, correct_train = 0, 0
-            for x, y in train_loader:
+            for i, (x, y) in enumerate(train_loader):
                 x, y = x.to(device), y.to(device)
+
+                # Get the weights for the current batch
+                batch_weights = torch.tensor(self.loaded_weights[i * batch_size:(i + 1) * batch_size]).to(device)
+
                 optimizer.zero_grad()
                 out = model(x)
-                loss = criterion(out, y)
+
+                loss = criterion(out, y) * batch_weights
+                loss = loss.mean()
                 loss.backward()
                 optimizer.step()
                 train_loss += loss.item()
@@ -406,5 +416,5 @@ class GestureDataProcessor:
 
 # --- Run the program ---
 if __name__ == '__main__':
-    processor = GestureDataProcessor(test=1,combination=1)
+    processor = GestureDataProcessor(test=1,combination=2)
     processor.run_all_combinations()
