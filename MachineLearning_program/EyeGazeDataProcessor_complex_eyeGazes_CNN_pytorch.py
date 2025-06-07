@@ -75,19 +75,18 @@ class GestureDataset(Dataset):
         return x, y
 
 class GestureDataProcessor:
-    def __init__(self, test=0, combination = 1):
+    def __init__(self, test=1, combination = 1):
         self.feature_match = {"fashion": 1, "game": 2, "music": 3, "news": 4, "movie": 5, "sport": 6} #"podcast": 5,
         self.gesture_name = list(self.feature_match.keys())
         self.all_video_files = list(range(1, 11))
-        self.test = test
+        self.test = test #0 for random dataset, 1 for decided dataset. 1 by default
         self.loaded_x = []
         self.loaded_y = []
         self.testFile = []
         self.trainFile = []
-        self.stepLen = '32'
-        self.clip_length = 32
-        self.folder_path = "all_gazes_text/youtube_video_processed/"
-        self.combinations = list()
+        self.stepLen = '32' # how many step do we have in one clip
+        self.folder_path = "all_gazes_text/youtube_video_processed/" # address of the eye gaze data
+        self.combinations = list() #which combination do we use, depend on combination parameter. 1 by default.
         self.decide_combination(combination)
         self.num_testVideos = len(self.combinations[0][1]) #how many test video for each category
         self.loaded_weights =[]
@@ -95,8 +94,8 @@ class GestureDataProcessor:
 
 
 
-        self.experiment_count = 0
-        self.test_video_length = 1 #always 1 unless want to make test video shorter
+        self.experiment_count = 0 # for counting multiple experiment, shouldn't modify
+        self.test_video_length = 1 #how many part you want to separate each video into. always 1 unless want to make test video shorter
 
     def decide_combination(self, combination):
         if combination == 1:
@@ -154,7 +153,7 @@ class GestureDataProcessor:
                     ori_w = float(parts[8].replace(")", ""))
                     combined += [ori_x, ori_y, ori_z, ori_w]
 
-        window_size = self.clip_length
+        window_size = int(self.stepLen)
         step = (window_size * int(self.stepLen)) // 2
         for i in range(0, len(combined), step):
             chunk = combined[i:i + (window_size * int(self.stepLen))]
